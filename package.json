@@ -1,0 +1,13 @@
+{
+  "name": "invidious-proxy-app",
+  "version": "1.0.0",
+  "description": "Proxy inverso para Invidious sin bloqueos de iframe",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
+  }
+}
