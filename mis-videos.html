@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis Vídeos</title>
+<style>
+  :root{
+    --bg:#0e0e12; --panel:#17171d; --panel2:#1e1e26; --line:#2a2a33;
+    --text:#eceaf0; --muted:#8d8b98; --accent:#e8b04b; --accent-dim:#8a6a2e;
+    --danger:#e0665a; --ok:#6fbf8b;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#0e0e12; --panel:#17171d; --panel2:#1e1e26; --line:#2a2a33; --text:#eceaf0; --muted:#8d8b98;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+  body{
+    height:100%; margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  header{
+    padding:env(safe-area-inset-top,0px) 16px 0;
+    background:var(--panel); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:10;
+  }
+  .headrow{display:flex; align-items:center; gap:12px; padding:14px 0 12px; flex-wrap:wrap;}
+  .brand{font-size:1.25rem; font-weight:700; letter-spacing:-0.01em; margin:0; flex:0 0 auto;}
+  .brand span{color:var(--accent);}
+  select, input[type=text]{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:9px 11px; font-size:0.92rem; outline:none;
+  }
+  select:focus, input:focus{border-color:var(--accent);}
+  .searchrow{display:flex; gap:8px; padding:0 0 14px;}
+  .searchrow input{flex:1; min-width:0;}
+  .searchrow button{
+    background:var(--accent); color:#1a1408; border:none; border-radius:8px;
+    padding:9px 16px; font-weight:600; cursor:pointer; font-size:0.92rem;
+  }
+  .searchrow button:active{transform:scale(0.97);}
+  .status{
+    font-size:0.8rem; color:var(--muted); padding:0 0 10px; display:flex; align-items:center; gap:6px;
+  }
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--muted); flex:0 0 auto;}
+  .dot.ok{background:var(--ok);} .dot.bad{background:var(--danger);}
+  main{flex:1; padding:16px; padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)); overflow-x:hidden;}
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px;
+  }
+  @media (min-width:700px){ .grid{grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:18px;} }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;
+    cursor:pointer; transition:border-color .15s;
+  }
+  .card:hover{border-color:var(--accent-dim);}
+  .thumb{width:100%; aspect-ratio:16/9; object-fit:cover; background:var(--panel2); display:block;}
+  .meta{padding:9px 10px 11px;}
+  .title{font-size:0.86rem; line-height:1.3; margin:0 0 5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .sub{font-size:0.74rem; color:var(--muted); margin:0;}
+  .empty{color:var(--muted); text-align:center; padding:60px 20px; font-size:0.95rem;}
+  .playerwrap{
+    position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:100; display:none;
+    padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+    flex-direction:column; overflow-y:auto;
+  }
+  .playerwrap.open{display:flex;}
+  .pbar{display:flex; align-items:center; gap:12px; padding:14px 16px;}
+  .back{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:0.88rem;}
+  video{width:100%; max-height:70vh; background:#000; display:block;}
+  .pinfo{padding:14px 16px 40px; max-width:800px;}
+  .pinfo h2{font-size:1.05rem; margin:0 0 8px; line-height:1.35;}
+  .pinfo p{color:var(--muted); font-size:0.85rem; margin:0;}
+  .spin{
+    width:22px; height:22px; border:2.5px solid var(--line); border-top-color:var(--accent);
+    border-radius:50%; animation:sp .7s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg);}}
+  .center{display:flex; align-items:center; justify-content:center; padding:60px 0; gap:10px; color:var(--muted); font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="headrow">
+    <p class="brand">Mis<span>Vídeos</span></p>
+    <select id="instanceSel"></select>
+  </div>
+  <div class="searchrow">
+    <input type="text" id="q" placeholder="Buscar vídeos…" autocomplete="off">
+    <button id="go">Buscar</button>
+  </div>
+  <div class="status" id="status"><span class="dot" id="statusDot"></span><span id="statusText">Elige una instancia y busca algo</span></div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="emptyMsg" style="display:none;">Sin resultados. Prueba otra búsqueda o cambia de instancia.</div>
+</main>
+
+<div class="playerwrap" id="playerWrap">
+  <div class="pbar"><button class="back" id="closeBtn">← Volver</button></div>
+  <div id="videoBox"></div>
+  <div class="pinfo" id="pinfo"></div>
+</div>
+
+<script>
+const INSTANCES = [
+  "https://inv.nadeko.net",
+  "https://invidious.nerdvpn.de",
+  "https://yewtu.be",
+  "https://invidious.jing.rocks",
+  "https://iv.melmac.space"
+];
+
+const sel = document.getElementById('instanceSel');
+INSTANCES.forEach(u => {
+  const o = document.createElement('option');
+  o.value = u; o.textContent = u.replace('https://','');
+  sel.appendChild(o);
+});
+
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+function setStatus(text, kind){
+  statusText.textContent = text;
+  statusDot.className = 'dot' + (kind ? ' ' + kind : '');
+}
+
+async function tryFetch(path){
+  // intenta la instancia elegida; si falla, prueba las demás en orden
+  const order = [sel.value, ...INSTANCES.filter(i => i !== sel.value)];
+  for (const base of order){
+    try{
+      const res = await fetch(base + path, {signal: AbortSignal.timeout(8000)});
+      if (!res.ok) throw new Error('http ' + res.status);
+      const data = await res.json();
+      if (base !== sel.value){ sel.value = base; }
+      return { data, base };
+    }catch(e){ continue; }
+  }
+  throw new Error('todas las instancias fallaron');
+}
+
+const grid = document.getElementById('grid');
+const emptyMsg = document.getElementById('emptyMsg');
+
+function fmtViews(n){
+  if (!n) return '';
+  if (n > 1e6) return (n/1e6).toFixed(1) + 'M vistas';
+  if (n > 1e3) return (n/1e3).toFixed(1) + 'K vistas';
+  return n + ' vistas';
+}
+
+async function doSearch(){
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  grid.innerHTML = '<div class="center"><div class="spin"></div>Buscando…</div>';
+  emptyMsg.style.display = 'none';
+  setStatus('Buscando en ' + sel.value.replace('https://',''), '');
+  try{
+    const { data, base } = await tryFetch('/api/v1/search?q=' + encodeURIComponent(q) + '&type=video');
+    grid.innerHTML = '';
+    const vids = data.filter(v => v.type === 'video');
+    if (vids.length === 0){ emptyMsg.style.display = 'block'; setStatus('Conectado a ' + base.replace('https://',''), 'ok'); return; }
+    vids.forEach(v => grid.appendChild(makeCard(v)));
+    setStatus('Conectado a ' + base.replace('https://',''), 'ok');
+  }catch(e){
+    grid.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    setStatus('Ninguna instancia respondió, inténtalo de nuevo', 'bad');
+  }
+}
+
+function makeCard(v){
+  const card = document.createElement('div');
+  card.className = 'card';
+  const thumbUrl = (v.videoThumbnails && (v.videoThumbnails.find(t => t.quality==='medium')||v.videoThumbnails[0])?.url) || '';
+  card.innerHTML = `
+    <img class="thumb" src="${thumbUrl}" loading="lazy" alt="">
+    <div class="meta">
+      <p class="title">${escapeHtml(v.title||'')}</p>
+      <p class="sub">${escapeHtml(v.author||'')} · ${fmtViews(v.viewCount)}</p>
+    </div>`;
+  card.addEventListener('click', () => openVideo(v.videoId));
+  return card;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const playerWrap = document.getElementById('playerWrap');
+const videoBox = document.getElementById('videoBox');
+const pinfo = document.getElementById('pinfo');
+
+async function openVideo(id){
+  playerWrap.classList.add('open');
+  videoBox.innerHTML = '<div class="center"><div class="spin"></div>Cargando vídeo…</div>';
+  pinfo.innerHTML = '';
+  try{
+    const { data } = await tryFetch('/api/v1/videos/' + id);
+    const streams = (data.formatStreams && data.formatStreams.length) ? data.formatStreams : (data.adaptiveFormats||[]);
+    const best = streams.filter(s => s.url).slice(-1)[0] || streams[0];
+    if (!best) throw new Error('sin formato reproducible');
+    videoBox.innerHTML = `<video controls autoplay playsinline src="${best.url}"></video>`;
+    pinfo.innerHTML = `<h2>${escapeHtml(data.title||'')}</h2><p>${escapeHtml(data.author||'')} · ${fmtViews(data.viewCount)}</p>`;
+  }catch(e){
+    videoBox.innerHTML = '<div class="center">No se pudo cargar este vídeo. Prueba otra instancia o vuelve a intentarlo.</div>';
+  }
+}
+
+document.getElementById('closeBtn').addEventListener('click', () => {
+  playerWrap.classList.remove('open');
+  videoBox.innerHTML = '';
+});
+document.getElementById('go').addEventListener('click', doSearch);
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+</script>
+</body>
+</html>
