@@ -90,7 +90,6 @@
 <header>
   <div class="headrow">
     <p class="brand">Mis<span>Vídeos</span></p>
-    <select id="instanceSel"></select>
   </div>
   <div class="searchrow">
     <input type="text" id="q" placeholder="Buscar vídeos…" autocomplete="off">
@@ -119,13 +118,6 @@ const INSTANCES = [
   "https://iv.melmac.space"
 ];
 
-const sel = document.getElementById('instanceSel');
-INSTANCES.forEach(u => {
-  const o = document.createElement('option');
-  o.value = u; o.textContent = u.replace('https://','');
-  sel.appendChild(o);
-});
-
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 function setStatus(text, kind){
@@ -133,31 +125,13 @@ function setStatus(text, kind){
   statusDot.className = 'dot' + (kind ? ' ' + kind : '');
 }
 
-function proxied(url, alt){
-  // codetabs suele ser más rápido y estable que allorigins; se usa como opción principal
-  return alt
-    ? 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
-    : 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-}
-
-async function fetchOne(base, path, alt){
-  const res = await fetch(proxied(base + path, alt), {signal: AbortSignal.timeout(7000)});
-  if (!res.ok) throw new Error('http ' + res.status);
-  const data = await res.json();
-  return { data, base };
-}
+const API = 'https://requestvyt-api.onrender.com';
 
 async function tryFetch(path){
-  const order = [sel.value, ...INSTANCES.filter(i => i !== sel.value)];
-  // lanza todas las instancias a la vez, con los dos proxies, y se queda con la primera que responda
-  const attempts = order.flatMap(base => [fetchOne(base, path, false), fetchOne(base, path, true)]);
-  try{
-    const result = await Promise.any(attempts);
-    if (result.base !== sel.value){ sel.value = result.base; }
-    return result;
-  }catch(e){
-    throw new Error('todas las instancias fallaron');
-  }
+  const res = await fetch(API + path, {signal: AbortSignal.timeout(15000)});
+  if (!res.ok) throw new Error('http ' + res.status);
+  const data = await res.json();
+  return { data, base: API };
 }
 
 const grid = document.getElementById('grid');
@@ -175,9 +149,9 @@ async function doSearch(){
   if (!q) return;
   grid.innerHTML = '<div class="center"><div class="spin"></div>Buscando…</div>';
   emptyMsg.style.display = 'none';
-  setStatus('Buscando en ' + sel.value.replace('https://',''), '');
+  setStatus('Buscando…', '');
   try{
-    const { data, base } = await tryFetch('/api/v1/search?q=' + encodeURIComponent(q) + '&type=video');
+    const { data, base } = await tryFetch('/api/search?q=' + encodeURIComponent(q));
     grid.innerHTML = '';
     const vids = data.filter(v => v.type === 'video');
     if (vids.length === 0){ emptyMsg.style.display = 'block'; setStatus('Conectado a ' + base.replace('https://',''), 'ok'); return; }
@@ -217,7 +191,7 @@ async function openVideo(id){
   videoBox.innerHTML = '<div class="center"><div class="spin"></div>Cargando vídeo…</div>';
   pinfo.innerHTML = '';
   try{
-    const { data } = await tryFetch('/api/v1/videos/' + id);
+    const { data } = await tryFetch('/api/video/' + id);
     const streams = (data.formatStreams && data.formatStreams.length) ? data.formatStreams : (data.adaptiveFormats||[]);
     const best = streams.filter(s => s.url).slice(-1)[0] || streams[0];
     if (!best) throw new Error('sin formato reproducible');
