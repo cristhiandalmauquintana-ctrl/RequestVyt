@@ -133,24 +133,31 @@ function setStatus(text, kind){
   statusDot.className = 'dot' + (kind ? ' ' + kind : '');
 }
 
-function proxied(url){
-  // muchas instancias públicas no envían cabeceras CORS; pasamos por un proxy que sí las añade
-  return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+function proxied(url, alt){
+  // codetabs suele ser más rápido y estable que allorigins; se usa como opción principal
+  return alt
+    ? 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
+    : 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
+}
+
+async function fetchOne(base, path, alt){
+  const res = await fetch(proxied(base + path, alt), {signal: AbortSignal.timeout(7000)});
+  if (!res.ok) throw new Error('http ' + res.status);
+  const data = await res.json();
+  return { data, base };
 }
 
 async function tryFetch(path){
-  // intenta la instancia elegida; si falla, prueba las demás en orden
   const order = [sel.value, ...INSTANCES.filter(i => i !== sel.value)];
-  for (const base of order){
-    try{
-      const res = await fetch(proxied(base + path), {signal: AbortSignal.timeout(9000)});
-      if (!res.ok) throw new Error('http ' + res.status);
-      const data = await res.json();
-      if (base !== sel.value){ sel.value = base; }
-      return { data, base };
-    }catch(e){ continue; }
+  // lanza todas las instancias a la vez, con los dos proxies, y se queda con la primera que responda
+  const attempts = order.flatMap(base => [fetchOne(base, path, false), fetchOne(base, path, true)]);
+  try{
+    const result = await Promise.any(attempts);
+    if (result.base !== sel.value){ sel.value = result.base; }
+    return result;
+  }catch(e){
+    throw new Error('todas las instancias fallaron');
   }
-  throw new Error('todas las instancias fallaron');
 }
 
 const grid = document.getElementById('grid');
