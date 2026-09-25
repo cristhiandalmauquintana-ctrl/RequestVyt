@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mis Vídeos</title>
+<title>Mis Vídeos - Invidious Client</title>
 <style>
   :root{
     --bg:#0e0e12; --panel:#17171d; --panel2:#1e1e26; --line:#2a2a33;
@@ -12,11 +12,6 @@
     box-sizing:border-box;
     padding-top:env(safe-area-inset-top,0px);
     padding-bottom:env(safe-area-inset-bottom,0px);
-  }
-  @media (prefers-color-scheme: light){
-    :root:not([data-theme="dark"]){
-      --bg:#0e0e12; --panel:#17171d; --panel2:#1e1e26; --line:#2a2a33; --text:#eceaf0; --muted:#8d8b98;
-    }
   }
   *{box-sizing:border-box}
   html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
@@ -30,8 +25,8 @@
     background:var(--panel); border-bottom:1px solid var(--line);
     position:sticky; top:0; z-index:10;
   }
-  .headrow{display:flex; align-items:center; gap:12px; padding:14px 0 12px; flex-wrap:wrap;}
-  .brand{font-size:1.25rem; font-weight:700; letter-spacing:-0.01em; margin:0; flex:0 0 auto;}
+  .headrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0 12px;}
+  .brand{font-size:1.25rem; font-weight:700; letter-spacing:-0.01em; margin:0;}
   .brand span{color:var(--accent);}
   select, input[type=text]{
     background:var(--panel2); color:var(--text); border:1px solid var(--line);
@@ -52,30 +47,41 @@
   .dot.ok{background:var(--ok);} .dot.bad{background:var(--danger);}
   main{flex:1; padding:16px; padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)); overflow-x:hidden;}
   .grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:14px;
   }
-  @media (min-width:700px){ .grid{grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:18px;} }
+  @media (min-width:700px){ .grid{grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:18px;} }
   .card{
     background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;
-    cursor:pointer; transition:border-color .15s;
+    cursor:pointer; transition:border-color .15s, transform .15s;
   }
-  .card:hover{border-color:var(--accent-dim);}
+  .card:hover{border-color:var(--accent); transform:translateY(-2px);}
   .thumb{width:100%; aspect-ratio:16/9; object-fit:cover; background:var(--panel2); display:block;}
-  .meta{padding:9px 10px 11px;}
+  .meta{padding:10px;}
   .title{font-size:0.86rem; line-height:1.3; margin:0 0 5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
   .sub{font-size:0.74rem; color:var(--muted); margin:0;}
   .empty{color:var(--muted); text-align:center; padding:60px 20px; font-size:0.95rem;}
+  
+  /* Player Modal */
   .playerwrap{
-    position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:100; display:none;
+    position:fixed; inset:0; background:rgba(0,0,0,.95); z-index:100; display:none;
     padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
     flex-direction:column; overflow-y:auto;
   }
   .playerwrap.open{display:flex;}
   .pbar{display:flex; align-items:center; gap:12px; padding:14px 16px;}
   .back{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:0.88rem;}
-  video{width:100%; max-height:70vh; background:#000; display:block;}
-  .pinfo{padding:14px 16px 40px; max-width:800px;}
-  .pinfo h2{font-size:1.05rem; margin:0 0 8px; line-height:1.35;}
+  
+  .iframe-container {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    aspect-ratio: 16/9;
+    background: #000;
+  }
+  iframe { width:100%; height:100%; border:none; }
+  
+  .pinfo{padding:16px; max-width:960px; margin:0 auto; width:100%;}
+  .pinfo h2{font-size:1.1rem; margin:0 0 8px; line-height:1.35;}
   .pinfo p{color:var(--muted); font-size:0.85rem; margin:0;}
   .spin{
     width:22px; height:22px; border:2.5px solid var(--line); border-top-color:var(--accent);
@@ -90,48 +96,99 @@
 <header>
   <div class="headrow">
     <p class="brand">Mis<span>Vídeos</span></p>
+    <select id="instanceSelect"></select>
   </div>
   <div class="searchrow">
-    <input type="text" id="q" placeholder="Buscar vídeos…" autocomplete="off">
+    <input type="text" id="q" placeholder="Buscar vídeos en Invidious…" autocomplete="off">
     <button id="go">Buscar</button>
   </div>
-  <div class="status" id="status"><span class="dot" id="statusDot"></span><span id="statusText">Elige una instancia y busca algo</span></div>
+  <div class="status" id="status"><span class="dot" id="statusDot"></span><span id="statusText">Comprobando instancias activas…</span></div>
 </header>
 
 <main>
   <div class="grid" id="grid"></div>
-  <div class="empty" id="emptyMsg" style="display:none;">Sin resultados. Prueba otra búsqueda o cambia de instancia.</div>
+  <div class="empty" id="emptyMsg" style="display:none;">Sin resultados. Intenta con otra búsqueda o selecciona otra instancia arriba.</div>
 </main>
 
 <div class="playerwrap" id="playerWrap">
   <div class="pbar"><button class="back" id="closeBtn">← Volver</button></div>
-  <div id="videoBox"></div>
+  <div class="iframe-container" id="videoBox"></div>
   <div class="pinfo" id="pinfo"></div>
 </div>
 
 <script>
+// Lista de instancias públicas estables con soporte API
 const INSTANCES = [
   "https://inv.nadeko.net",
   "https://invidious.nerdvpn.de",
+  "https://invidious.drgns.space",
   "https://yewtu.be",
-  "https://invidious.jing.rocks",
   "https://iv.melmac.space"
 ];
 
+let activeInstance = INSTANCES[0];
+
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
+const instanceSelect = document.getElementById('instanceSelect');
+
+// Llenar selector de instancias
+INSTANCES.forEach(inst => {
+  const opt = document.createElement('option');
+  opt.value = inst;
+  opt.textContent = inst.replace('https://', '');
+  instanceSelect.appendChild(opt);
+});
+
 function setStatus(text, kind){
   statusText.textContent = text;
   statusDot.className = 'dot' + (kind ? ' ' + kind : '');
 }
 
-const API = 'https://requestvyt-api.onrender.com';
+// Probar cuál instancia responde
+async function initInstances() {
+  setStatus('Conectando a la mejor instancia...', '');
+  for (let inst of INSTANCES) {
+    try {
+      const res = await fetch(`${inst}/api/v1/trending?type=Music`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        activeInstance = inst;
+        instanceSelect.value = inst;
+        setStatus('Conectado a ' + inst.replace('https://',''), 'ok');
+        return;
+      }
+    } catch(e) {
+      continue;
+    }
+  }
+  setStatus('Usando instancia por defecto: ' + activeInstance.replace('https://',''), 'ok');
+}
 
-async function tryFetch(path){
-  const res = await fetch(API + path, {signal: AbortSignal.timeout(15000)});
-  if (!res.ok) throw new Error('http ' + res.status);
-  const data = await res.json();
-  return { data, base: API };
+instanceSelect.addEventListener('change', (e) => {
+  activeInstance = e.target.value;
+  setStatus('Cambiado a ' + activeInstance.replace('https://',''), 'ok');
+});
+
+async function fetchInvidious(endpoint) {
+  // Intentar la instancia seleccionada
+  try {
+    const res = await fetch(`${activeInstance}${endpoint}`, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) return await res.json();
+  } catch(e) {}
+
+  // Fallback: Probar el resto de instancias si la activa falla
+  for (let inst of INSTANCES) {
+    if (inst === activeInstance) continue;
+    try {
+      const res = await fetch(`${inst}${endpoint}`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        activeInstance = inst;
+        instanceSelect.value = inst;
+        return await res.json();
+      }
+    } catch(e) { continue; }
+  }
+  throw new Error('Todas las instancias fallaron');
 }
 
 const grid = document.getElementById('grid');
@@ -144,70 +201,84 @@ function fmtViews(n){
   return n + ' vistas';
 }
 
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function doSearch(){
   const q = document.getElementById('q').value.trim();
   if (!q) return;
-  grid.innerHTML = '<div class="center"><div class="spin"></div>Buscando…</div>';
+  
+  grid.innerHTML = '<div class="center"><div class="spin"></div>Buscando vídeos…</div>';
   emptyMsg.style.display = 'none';
-  setStatus('Buscando…', '');
-  try{
-    const { data, base } = await tryFetch('/api/search?q=' + encodeURIComponent(q));
+  setStatus('Buscando en ' + activeInstance.replace('https://',''), '');
+
+  try {
+    const data = await fetchInvidious(`/api/v1/search?q=${encodeURIComponent(q)}&type=video`);
     grid.innerHTML = '';
-    const vids = data.filter(v => v.type === 'video');
-    if (vids.length === 0){ emptyMsg.style.display = 'block'; setStatus('Conectado a ' + base.replace('https://',''), 'ok'); return; }
-    vids.forEach(v => grid.appendChild(makeCard(v)));
-    setStatus('Conectado a ' + base.replace('https://',''), 'ok');
-  }catch(e){
+    
+    if (!data || data.length === 0){ 
+      emptyMsg.style.display = 'block'; 
+      setStatus('Sin resultados', 'ok'); 
+      return; 
+    }
+    
+    data.forEach(v => {
+      if (v.type === 'video') grid.appendChild(makeCard(v));
+    });
+    
+    setStatus('Conectado a ' + activeInstance.replace('https://',''), 'ok');
+  } catch(e) {
     grid.innerHTML = '';
     emptyMsg.style.display = 'block';
-    setStatus('Ninguna instancia respondió, inténtalo de nuevo', 'bad');
+    setStatus('Error al conectar. Cambia de instancia arriba.', 'bad');
   }
 }
 
 function makeCard(v){
   const card = document.createElement('div');
   card.className = 'card';
-  const thumbUrl = (v.videoThumbnails && (v.videoThumbnails.find(t => t.quality==='medium')||v.videoThumbnails[0])?.url) || '';
+  
+  let thumbUrl = '';
+  if (v.videoThumbnails && v.videoThumbnails.length > 0) {
+    const medium = v.videoThumbnails.find(t => t.quality === 'medium');
+    thumbUrl = medium ? medium.url : v.videoThumbnails[0].url;
+  }
+  
   card.innerHTML = `
     <img class="thumb" src="${thumbUrl}" loading="lazy" alt="">
     <div class="meta">
       <p class="title">${escapeHtml(v.title||'')}</p>
       <p class="sub">${escapeHtml(v.author||'')} · ${fmtViews(v.viewCount)}</p>
     </div>`;
-  card.addEventListener('click', () => openVideo(v.videoId));
+    
+  card.addEventListener('click', () => openVideo(v.videoId, v.title, v.author, v.viewCount));
   return card;
-}
-
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 const playerWrap = document.getElementById('playerWrap');
 const videoBox = document.getElementById('videoBox');
 const pinfo = document.getElementById('pinfo');
 
-async function openVideo(id){
+function openVideo(id, title, author, views){
   playerWrap.classList.add('open');
-  videoBox.innerHTML = '<div class="center"><div class="spin"></div>Cargando vídeo…</div>';
-  pinfo.innerHTML = '';
-  try{
-    const { data } = await tryFetch('/api/video/' + id);
-    const streams = (data.formatStreams && data.formatStreams.length) ? data.formatStreams : (data.adaptiveFormats||[]);
-    const best = streams.filter(s => s.url).slice(-1)[0] || streams[0];
-    if (!best) throw new Error('sin formato reproducible');
-    videoBox.innerHTML = `<video controls autoplay playsinline src="${best.url}"></video>`;
-    pinfo.innerHTML = `<h2>${escapeHtml(data.title||'')}</h2><p>${escapeHtml(data.author||'')} · ${fmtViews(data.viewCount)}</p>`;
-  }catch(e){
-    videoBox.innerHTML = '<div class="center">No se pudo cargar este vídeo. Prueba otra instancia o vuelve a intentarlo.</div>';
-  }
+  
+  // Usamos el embed iframe oficial de Invidious que no sufre por CORS ni firma de IPs
+  videoBox.innerHTML = `<iframe src="${activeInstance}/embed/${id}?autoplay=1&listen=false" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+  
+  pinfo.innerHTML = `<h2>${escapeHtml(title||'')}</h2><p>${escapeHtml(author||'')} · ${fmtViews(views)}</p>`;
 }
 
 document.getElementById('closeBtn').addEventListener('click', () => {
   playerWrap.classList.remove('open');
   videoBox.innerHTML = '';
 });
+
 document.getElementById('go').addEventListener('click', doSearch);
 document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+// Inicializar búsqueda de instancia activa
+initInstances();
 </script>
 </body>
 </html>
